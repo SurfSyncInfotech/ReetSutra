@@ -95,7 +95,7 @@ export const Inventory = () => {
       totalBlockedCount += item.blocked;
       totalBadCount += item.bad;
       totalAvailableCount += item.available;
-      if (item.available <= 50) lowStockCount++;
+      if (item.available <= 5) lowStockCount++;
     });
 
     return {
@@ -308,9 +308,9 @@ export const Inventory = () => {
       header: "Available",
       render: (row) => {
         let badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
-        if (row.available <= 10) {
+        if (row.available <= 0) {
           badgeStyle = "bg-rose-50 text-rose-700 border-rose-200";
-        } else if (row.available <= 50) {
+        } else if (row.available <= 5) {
           badgeStyle = "bg-amber-50 text-amber-700 border-amber-200";
         }
         return (
@@ -318,11 +318,15 @@ export const Inventory = () => {
             <span className={`px-2 py-0.5 text-xs font-bold rounded-md border ${badgeStyle}`}>
               {row.available} units
             </span>
-            {row.available <= 10 && (
+            {row.available <= 0 ? (
               <span className="text-[9px] text-rose-600 font-bold flex items-center gap-0.5">
-                <AlertTriangle size={10} /> Out of / Critical
+                <AlertTriangle size={10} /> Out of Stock
               </span>
-            )}
+            ) : row.available <= 5 ? (
+              <span className="text-[9px] text-amber-600 font-bold flex items-center gap-0.5">
+                <AlertTriangle size={10} /> Low Stock Warning
+              </span>
+            ) : null}
           </div>
         );
       }

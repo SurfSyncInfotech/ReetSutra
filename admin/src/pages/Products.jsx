@@ -50,6 +50,9 @@ export const Products = () => {
   const [formFacility, setFormFacility] = useState("Main Warehouse");
   const [formBadInventory, setFormBadInventory] = useState("");
   const [formShelfLife, setFormShelfLife] = useState("");
+  const [formStorageInstructions, setFormStorageInstructions] = useState("");
+  const [formNutritionFacts, setFormNutritionFacts] = useState("");
+  const [formShippingInfo, setFormShippingInfo] = useState("");
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -178,6 +181,9 @@ export const Products = () => {
     setFormFacility("Main Warehouse");
     setFormBadInventory("");
     setFormShelfLife("");
+    setFormStorageInstructions("");
+    setFormNutritionFacts("");
+    setFormShippingInfo("");
     setFormIsBundle(false);
     setFormBundleItems([]);
     setBundleSelectedProduct("");
@@ -195,18 +201,41 @@ export const Products = () => {
     
     // Robust category matching by ID, Name, or Object
     let targetCatId = "";
-    if (product.category) {
-      const rawCat = typeof product.category === "object" ? (product.category._id || product.category.id || product.category.name || "") : product.category;
-      const matchedCat = categories.find(c =>
-        String(c._id || c.id) === String(rawCat) ||
-        String(c.name).toLowerCase() === String(rawCat).toLowerCase() ||
-        String(c.displayName || "").toLowerCase() === String(rawCat).toLowerCase()
-      );
+    const catRef = product.category || product.categoryId;
+    if (catRef) {
+      let rawId = "";
+      let rawName = "";
+      if (typeof catRef === "object" && catRef !== null) {
+        rawId = catRef._id || catRef.id || "";
+        rawName = catRef.name || catRef.displayName || "";
+      } else {
+        rawId = catRef;
+        rawName = String(catRef);
+      }
+
+      const matchedCat = categories.find(c => {
+        const cId = String(c._id || c.id || "");
+        const cName = String(c.name || "").toLowerCase();
+        const cDisp = String(c.displayName || "").toLowerCase();
+        const targetIdStr = String(rawId || "");
+        const targetNameStr = String(rawName || "").toLowerCase();
+
+        return (
+          (cId && targetIdStr && cId === targetIdStr) ||
+          (cName && targetNameStr && cName === targetNameStr) ||
+          (cDisp && targetNameStr && cDisp === targetNameStr)
+        );
+      });
+
       if (matchedCat) {
         targetCatId = String(matchedCat._id || matchedCat.id);
-      } else {
-        targetCatId = String(rawCat);
+      } else if (rawId && categories.some(c => String(c._id || c.id) === String(rawId))) {
+        targetCatId = String(rawId);
+      } else if (categories.length > 0) {
+        targetCatId = String(categories[0]._id || categories[0].id);
       }
+    } else if (categories.length > 0) {
+      targetCatId = String(categories[0]._id || categories[0].id);
     }
     setFormCategory(targetCatId);
     setFormStock(product.stock);
@@ -258,6 +287,9 @@ export const Products = () => {
     setFormFacility(product.facility || "Main Warehouse");
     setFormBadInventory(product.badInventory !== undefined && product.badInventory !== null ? String(product.badInventory) : "0");
     setFormShelfLife(product.shelfLife || "");
+    setFormStorageInstructions(product.storageInstructions || "");
+    setFormNutritionFacts(product.nutritionFacts || "");
+    setFormShippingInfo(product.shippingInfo || "");
 
     // Bundle fields
     const catName = product.category?.name || "";
@@ -568,7 +600,13 @@ export const Products = () => {
     const activeImages = formImages.filter((img) => img.trim() !== "");
     const primaryImg = activeImages[0] || formImage || "";
 
-    if (!formName || !formPrice || !formStock || !primaryImg || !formCategory) {
+    let catToSubmit = formCategory;
+    if (!catToSubmit && categories.length > 0) {
+      catToSubmit = String(categories[0]._id || categories[0].id);
+      setFormCategory(catToSubmit);
+    }
+
+    if (!formName || !formPrice || !formStock || !primaryImg || !catToSubmit) {
       setFormError("Please fill out all required fields (*). Make sure a category is selected and at least one product image is uploaded.");
       return;
     }
@@ -598,7 +636,7 @@ export const Products = () => {
       name: formName,
       description: formDescription,
       price: parseFloat(formPrice),
-      category: formCategory,
+      category: catToSubmit,
       stock: parseInt(formStock),
       status: formStatus,
       image: primaryImg,
@@ -626,6 +664,9 @@ export const Products = () => {
       facility: formFacility || "Main Warehouse",
       badInventory: formBadInventory ? parseInt(formBadInventory) : 0,
       shelfLife: formShelfLife || "",
+      storageInstructions: formStorageInstructions || "",
+      nutritionFacts: formNutritionFacts || "",
+      shippingInfo: formShippingInfo || "",
       isBundle: formIsBundle,
       bundleItems: formBundleItems
     };
@@ -1217,6 +1258,45 @@ export const Products = () => {
                   placeholder="Rich in nutrition, Traditional preparation, No preservatives"
                   value={formBenefits}
                   onChange={(e) => setFormBenefits(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-primary/10 rounded-lg text-sm bg-background placeholder-charcoal-light focus:outline-none focus:ring-1 focus:ring-secondary/50 focus:border-secondary transition-all resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-primary mb-1">
+                  Storage Instructions
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter storage instructions..."
+                  value={formStorageInstructions}
+                  onChange={(e) => setFormStorageInstructions(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-primary/10 rounded-lg text-sm bg-background placeholder-charcoal-light focus:outline-none focus:ring-1 focus:ring-secondary/50 focus:border-secondary transition-all resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-primary mb-1">
+                  Nutrition Facts
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter nutrition facts..."
+                  value={formNutritionFacts}
+                  onChange={(e) => setFormNutritionFacts(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-primary/10 rounded-lg text-sm bg-background placeholder-charcoal-light focus:outline-none focus:ring-1 focus:ring-secondary/50 focus:border-secondary transition-all resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-primary mb-1">
+                  Shipping & Delivery Info
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Enter shipping & delivery info..."
+                  value={formShippingInfo}
+                  onChange={(e) => setFormShippingInfo(e.target.value)}
                   className="w-full px-3.5 py-2 border border-primary/10 rounded-lg text-sm bg-background placeholder-charcoal-light focus:outline-none focus:ring-1 focus:ring-secondary/50 focus:border-secondary transition-all resize-none"
                 />
               </div>

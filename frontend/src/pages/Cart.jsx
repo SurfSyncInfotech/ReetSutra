@@ -102,11 +102,16 @@ export default function Cart() {
   const checkedCartCount = checkedCartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   // Math Calculations computed strictly on checked items!
-  const subtotal = checkedCartItems.reduce((acc, item) => {
-    const discountedPrice = Math.round(item.product.price * (1 - item.product.discount / 100));
-    return acc + (discountedPrice * item.quantity);
+  const totalOriginalAmount = checkedCartItems.reduce((acc, item) => {
+    const origPrice = item.product.originalPrice || item.product.compareAtPrice || (item.product.discount > 0 ? Math.round(item.product.price / (1 - item.product.discount / 100)) : item.product.price);
+    return acc + (origPrice * item.quantity);
   }, 0);
 
+  const subtotal = checkedCartItems.reduce((acc, item) => {
+    return acc + (item.product.price * item.quantity);
+  }, 0);
+
+  const totalOfferSavings = Math.max(0, totalOriginalAmount - subtotal);
   const deliveryCharge = subtotal > 799 || subtotal === 0 ? 0 : 70;
   
   const discountAmount = appliedDiscountAmount;
@@ -248,8 +253,11 @@ export default function Cart() {
           </div>
 
           {cart.map((item) => {
-            const discountedPrice = Math.round(item.product.price * (1 - item.product.discount / 100));
-            const itemTotal = discountedPrice * item.quantity;
+            const unitPrice = item.product.price;
+            const originalUnitPrice = item.product.originalPrice || item.product.compareAtPrice || (item.product.discount > 0 ? Math.round(item.product.price / (1 - item.product.discount / 100)) : item.product.price);
+            const discountPct = item.product.discount || 0;
+            const hasFloatingOffer = item.product.hasFloatingOffer || false;
+            const itemTotal = unitPrice * item.quantity;
             const itemIdKey = String(item.product.id || item.product._id);
             const isSelectedForCheckout = selectedCartItemIds.has(itemIdKey);
 
@@ -305,11 +313,30 @@ export default function Cart() {
                       Net Weight: <span className="font-semibold text-brand-green">{item.product.weight}</span>
                     </p>
                     
-                    <div className="flex items-center justify-center sm:justify-start space-x-2 pt-1 font-sans">
-                      <span className="text-sm font-bold text-brand-green">₹{discountedPrice}</span>
-                      {item.product.discount > 0 && (
+                    {/* Offer Tag Badge */}
+                    {discountPct > 0 && (
+                      <div className="pt-0.5 flex items-center justify-center sm:justify-start">
+                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                          hasFloatingOffer 
+                            ? 'bg-amber-100 text-amber-900 border-amber-300 animate-pulse' 
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        }`}>
+                          {hasFloatingOffer ? `🔥 Offer: ${discountPct}% OFF Applied` : `🏷️ ${discountPct}% OFF Discount Applied`}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Price Breakdown */}
+                    <div className="flex items-baseline justify-center sm:justify-start space-x-2 pt-1 font-sans">
+                      <span className="text-base font-extrabold text-brand-green">₹{unitPrice}</span>
+                      {originalUnitPrice > unitPrice && (
                         <span className="text-xs text-brand-charcoalLight line-through">
-                          ₹{item.product.price}
+                          ₹{originalUnitPrice}
+                        </span>
+                      )}
+                      {discountPct > 0 && (
+                        <span className="text-[11px] font-bold text-amber-700">
+                          ({discountPct}% OFF)
                         </span>
                       )}
                     </div>
@@ -499,7 +526,19 @@ export default function Cart() {
             <div className="space-y-3 text-xs md:text-sm text-brand-charcoalLight font-sans">
               
               <div className="flex justify-between">
-                <span>Subtotal</span>
+                <span>Item MRP Total</span>
+                <span className="font-bold text-brand-charcoal">₹{totalOriginalAmount > subtotal ? totalOriginalAmount : subtotal}</span>
+              </div>
+
+              {totalOfferSavings > 0 && (
+                <div className="flex justify-between text-amber-800 font-bold bg-amber-50 px-2.5 py-1.5 rounded border border-amber-200">
+                  <span>🔥 Campaign Offer Savings</span>
+                  <span>-₹{totalOfferSavings}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between">
+                <span>Subtotal (After Offers)</span>
                 <span className="font-bold text-brand-green">₹{subtotal}</span>
               </div>
               

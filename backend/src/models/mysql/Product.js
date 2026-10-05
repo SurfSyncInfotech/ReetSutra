@@ -77,6 +77,18 @@ export const Product = sequelize.define("Product", {
     allowNull: true,
     defaultValue: []
   },
+  storageInstructions: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  nutritionFacts: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  shippingInfo: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   benefits: {
     type: DataTypes.JSON,
     allowNull: true,

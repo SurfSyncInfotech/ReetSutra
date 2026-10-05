@@ -31,6 +31,7 @@ export default function ProductDetails() {
   const [isNotifyOpen, setIsNotifyOpen] = useState(false);
   
   // Reviews dynamic states
+  const reviewsRef = React.useRef(null);
   const [reviews, setReviews] = useState([]);
   const [isReviewsLoading, setIsReviewsLoading] = useState(true);
   const [newRating, setNewRating] = useState(5);
@@ -149,18 +150,6 @@ export default function ProductDetails() {
     }
   }, [product?.id, product?._id, loadReviews]);
 
-  if (!product) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
-        <h2 className="text-2xl font-bold font-serif text-brand-green">Delicacy Not Found</h2>
-        <p className="text-xs md:text-sm text-brand-charcoalLight">The product you are trying to view does not exist in our heritage database.</p>
-        <Link to="/shop" className="inline-block bg-brand-green text-brand-cream px-6 py-2 rounded text-xs font-bold uppercase tracking-widest">
-          Go To Shop
-        </Link>
-      </div>
-    );
-  }
-
   // Combine primary image and additional gallery images without duplicates
   const allImages = React.useMemo(() => {
     if (!product) return [];
@@ -173,6 +162,18 @@ export default function ProductDetails() {
     }
     return list;
   }, [product]);
+
+  if (!product) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
+        <h2 className="text-2xl font-bold font-serif text-brand-green">Delicacy Not Found</h2>
+        <p className="text-xs md:text-sm text-brand-charcoalLight">The product you are trying to view does not exist in our heritage database.</p>
+        <Link to="/shop" className="inline-block bg-brand-green text-brand-cream px-6 py-2 rounded text-xs font-bold uppercase tracking-widest">
+          Go To Shop
+        </Link>
+      </div>
+    );
+  }
 
   const inWishlist = isInWishlist(product.id);
   const discountedPrice = Math.round(product.price * (1 - product.discount / 100));
@@ -196,6 +197,19 @@ export default function ProductDetails() {
   };
 
   // Dynamic reviews loaded from database
+  const reviewCount = reviews.length;
+  const avgRating = reviewCount > 0 
+    ? parseFloat((reviews.reduce((acc, r) => acc + Number(r.rating || 5), 0) / reviewCount).toFixed(1)) 
+    : 0;
+
+  const scrollToReviews = () => {
+    setOpenAccordions(prev => ({ ...prev, reviews: true }));
+    setTimeout(() => {
+      if (reviewsRef.current) {
+        reviewsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-16">
@@ -249,7 +263,21 @@ export default function ProductDetails() {
                         : 'border-brand-gold/20 hover:border-brand-gold/60 bg-white opacity-80 hover:opacity-100'
                     }`}
                   >
-                    <img src={img} alt={`${product.name} gallery ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img
+                      src={img}
+                      alt={`${product.name} gallery ${idx + 1}`}
+                      onError={(e) => {
+                        const btn = e.target.closest('button');
+                        const currentSrc = e.target.src || '';
+                        if (currentSrc && currentSrc.includes('/uploads/') && !currentSrc.startsWith('https://backend.reetsutra.com')) {
+                          const relativePath = currentSrc.substring(currentSrc.indexOf('/uploads/'));
+                          e.target.src = `https://backend.reetsutra.com${relativePath}`;
+                        } else if (btn) {
+                          btn.style.display = 'none';
+                        }
+                      }}
+                      className="w-full h-full object-cover"
+                    />
                   </button>
                 );
               })}
@@ -293,17 +321,21 @@ export default function ProductDetails() {
             </p>
 
             {/* Rating summary */}
-            <div className="flex items-center space-x-2 pt-1">
+            <div 
+              onClick={scrollToReviews}
+              className="flex items-center space-x-2 pt-1 cursor-pointer hover:opacity-85 transition-all group"
+              title="Click to view customer reviews"
+            >
               <div className="flex items-center text-brand-gold">
                 {[...Array(5)].map((_, i) => (
                   <Star 
                     key={i} 
-                    className={`w-4.5 h-4.5 ${i < Math.floor(product.rating) ? 'fill-current' : 'opacity-30'}`} 
+                    className={`w-4.5 h-4.5 ${i < Math.floor(avgRating) ? 'fill-current' : 'opacity-30'}`} 
                   />
                 ))}
               </div>
-              <span className="text-sm text-brand-charcoalLight font-semibold">
-                {product.rating} ({product.reviews} customer reviews)
+              <span className="text-sm text-brand-charcoalLight font-semibold group-hover:text-brand-green group-hover:underline underline-offset-2">
+                ({reviewCount} {reviewCount === 1 ? 'customer review' : 'customer reviews'})
               </span>
             </div>
           </div>
@@ -330,15 +362,10 @@ export default function ProductDetails() {
 
           {/* Short description if present */}
           {product.shortDescription && (
-            <p className="text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-medium bg-brand-cream/35 border-l-2 border-brand-gold pl-3 py-2">
+            <div className="text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-medium bg-brand-cream/35 border-l-2 border-brand-gold pl-3 py-2.5 whitespace-pre-line">
               {product.shortDescription}
-            </p>
+            </div>
           )}
-
-          {/* Full description */}
-          <p className="text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans">
-            {product.description}
-          </p>
 
           {/* Quality badges */}
           <div className="flex flex-wrap gap-2.5 py-1 text-[10px] md:text-xs text-brand-green font-bold">
@@ -482,28 +509,25 @@ export default function ProductDetails() {
                 <span className="text-brand-gold font-bold text-base">{openAccordions.description ? '−' : '+'}</span>
               </button>
               {openAccordions.description && (
-                <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-light text-left">
-                  {product.description}
-                  <p className="mt-2 text-brand-gold italic">
-                    Traditional cooking process prepare in copper vessels and hand-rolled by trained Bihar women collectives.
-                  </p>
+                <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-light text-left whitespace-pre-line">
+                  {product.description || <span className="italic opacity-60">Not specified</span>}
                 </div>
               )}
             </div>
 
             {/* 2. Ingredients */}
-            <div className="border-b border-brand-creamDark pb-4">
-              <button
-                type="button"
-                onClick={() => toggleAccordion('ingredients')}
-                className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
-              >
-                <span>Ingredients</span>
-                <span className="text-brand-gold font-bold text-base">{openAccordions.ingredients ? '−' : '+'}</span>
-              </button>
-              {openAccordions.ingredients && (
-                <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans text-left">
-                  {product.ingredients && product.ingredients.length > 0 ? (
+            {product.ingredients && product.ingredients.length > 0 && (
+              <div className="border-b border-brand-creamDark pb-4">
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('ingredients')}
+                  className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
+                >
+                  <span>Ingredients</span>
+                  <span className="text-brand-gold font-bold text-base">{openAccordions.ingredients ? '−' : '+'}</span>
+                </button>
+                {openAccordions.ingredients && (
+                  <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans text-left">
                     <ul className="list-disc pl-5 space-y-1.5 font-light">
                       {product.ingredients.map((ing, idx) => (
                         <li key={idx}>
@@ -512,101 +536,78 @@ export default function ProductDetails() {
                         </li>
                       ))}
                     </ul>
-                  ) : (
-                    <p className="font-light">100% natural heritage ingredients.</p>
-                  )}
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 3. Storage Instructions */}
-            <div className="border-b border-brand-creamDark pb-4">
-              <button
-                type="button"
-                onClick={() => toggleAccordion('storage')}
-                className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
-              >
-                <span>Storage Instructions</span>
-                <span className="text-brand-gold font-bold text-base">{openAccordions.storage ? '−' : '+'}</span>
-              </button>
-              {openAccordions.storage && (
-                <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-light space-y-1 text-left">
-                  <p>• Store in a cool, dry, and hygienic place.</p>
-                  <p>• Use a clean, dry spoon to scoop out contents.</p>
-                  <p>• Keep the lid tightly sealed when not in use.</p>
-                </div>
-              )}
-            </div>
+            {Boolean(product.storageInstructions && product.storageInstructions.trim()) && (
+              <div className="border-b border-brand-creamDark pb-4">
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('storage')}
+                  className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
+                >
+                  <span>Storage Instructions</span>
+                  <span className="text-brand-gold font-bold text-base">{openAccordions.storage ? '−' : '+'}</span>
+                </button>
+                {openAccordions.storage && (
+                  <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-light space-y-1 text-left whitespace-pre-line">
+                    <p>{product.storageInstructions}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 4. Nutrition Facts */}
-            <div className="border-b border-brand-creamDark pb-4">
-              <button
-                type="button"
-                onClick={() => toggleAccordion('nutrition')}
-                className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
-              >
-                <span>Nutrition Facts</span>
-                <span className="text-brand-gold font-bold text-base">{openAccordions.nutrition ? '−' : '+'}</span>
-              </button>
-              {openAccordions.nutrition && (
-                <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-light text-left">
-                  <table className="min-w-[200px] border border-brand-gold/15 rounded text-left text-xs">
-                    <thead>
-                      <tr className="bg-brand-cream/35 border-b border-brand-gold/15 text-brand-green font-bold">
-                        <th className="px-3 py-1.5">Nutrient</th>
-                        <th className="px-3 py-1.5">Per 100g (Approx)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b border-brand-gold/15">
-                        <td className="px-3 py-1">Energy</td>
-                        <td className="px-3 py-1">380 kcal</td>
-                      </tr>
-                      <tr className="border-b border-brand-gold/15">
-                        <td className="px-3 py-1">Protein</td>
-                        <td className="px-3 py-1">4.5g</td>
-                      </tr>
-                      <tr className="border-b border-brand-gold/15">
-                        <td className="px-3 py-1">Carbohydrates</td>
-                        <td className="px-3 py-1">48.2g</td>
-                      </tr>
-                      <tr>
-                        <td className="px-3 py-1">Total Fat</td>
-                        <td className="px-3 py-1">18.5g</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            {Boolean(product.nutritionFacts && product.nutritionFacts.trim()) && (
+              <div className="border-b border-brand-creamDark pb-4">
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('nutrition')}
+                  className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
+                >
+                  <span>Nutrition Facts</span>
+                  <span className="text-brand-gold font-bold text-base">{openAccordions.nutrition ? '−' : '+'}</span>
+                </button>
+                {openAccordions.nutrition && (
+                  <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-light text-left">
+                    <div className="whitespace-pre-line font-medium bg-brand-cream/30 p-3 rounded border border-brand-gold/15">
+                      {product.nutritionFacts}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 5. Shipping & Delivery */}
-            <div className="border-b border-brand-creamDark pb-4">
-              <button
-                type="button"
-                onClick={() => toggleAccordion('shipping')}
-                className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
-              >
-                <span>Shipping & Delivery</span>
-                <span className="text-brand-gold font-bold text-base">{openAccordions.shipping ? '−' : '+'}</span>
-              </button>
-              {openAccordions.shipping && (
-                <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-light space-y-1 text-left">
-                  <p>🚚 Dispatch within 24-48 hours of order confirmation.</p>
-                  <p>📦 Delivery across India within 4 to 7 business days.</p>
-                  <p>✨ Free delivery for orders above ₹999.</p>
-                </div>
-              )}
-            </div>
+            {Boolean(product.shippingInfo && product.shippingInfo.trim()) && (
+              <div className="border-b border-brand-creamDark pb-4">
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('shipping')}
+                  className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
+                >
+                  <span>Shipping & Delivery</span>
+                  <span className="text-brand-gold font-bold text-base">{openAccordions.shipping ? '−' : '+'}</span>
+                </button>
+                {openAccordions.shipping && (
+                  <div className="mt-3 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans font-light space-y-1 text-left whitespace-pre-line">
+                    <p>{product.shippingInfo}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 6. Reviews */}
-            <div className="border-b border-[#E1D7C6] pb-2">
+            <div ref={reviewsRef} className="border-b border-[#E1D7C6] pb-2">
               <button
                 type="button"
                 onClick={() => toggleAccordion('reviews')}
                 className="w-full flex justify-between items-center text-sm font-bold text-brand-green font-serif uppercase tracking-wider cursor-pointer"
               >
-                <span>Reviews ({product.reviewsCount || 0})</span>
+                <span>Reviews ({reviewCount})</span>
                 <span className="text-brand-gold font-bold text-base">{openAccordions.reviews ? '−' : '+'}</span>
               </button>
               {openAccordions.reviews && (

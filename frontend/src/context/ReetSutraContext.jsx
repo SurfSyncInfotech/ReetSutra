@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { API_BASE_URL, BACKEND_URL, getFrontendImageUrl } from '../config';
+import { getWhatsAppUrl } from '../utils/whatsapp';
 
 const ReetSutraContext = createContext();
 
@@ -18,7 +19,7 @@ export const ReetSutraProvider = ({ children }) => {
     const saved = localStorage.getItem('reetsutra_cart');
     return saved ? JSON.parse(saved) : [];
   });
-  
+
   const [wishlist, setWishlist] = useState(() => {
     const saved = localStorage.getItem('reetsutra_wishlist');
     return saved ? JSON.parse(saved) : [];
@@ -66,15 +67,15 @@ export const ReetSutraProvider = ({ children }) => {
     try {
       const response = await fetch(`${API_BASE_URL}/products?limit=100`);
       const resJson = await response.json();
-      
+
       if (response.ok && resJson.success) {
         const mapped = resJson.data.products.map(p => ({
           ...p,
           id: p._id || p.id,
           tagline: p.tagline || p.description?.slice(0, 60) || 'Delicious traditional snack item',
           baseDiscount: p.compareAtPrice && p.compareAtPrice > p.price ? Math.round(((p.compareAtPrice - p.price) / p.compareAtPrice) * 100) : (p.discount || 0),
-          rating: p.rating || 4.7,
-          reviews: p.reviewsCount || 15,
+          rating: (p.reviewsCount && p.reviewsCount > 0) ? (p.rating || 5.0) : 0,
+          reviews: p.reviewsCount !== undefined && p.reviewsCount !== null ? p.reviewsCount : 0,
           bestseller: p.rating >= 4.8,
           category: typeof p.category === 'object' ? p.category?.name || 'Uncategorized' : (p.category || 'Uncategorized'),
           image: getProductImageUrl(p.image),
@@ -120,7 +121,7 @@ export const ReetSutraProvider = ({ children }) => {
   // Compute products with active floating banner offers applied
   const products = React.useMemo(() => {
     const now = new Date();
-    
+
     // Find active floating banners with valid date range and discount > 0
     const activeFloatingOffers = banners.filter(b => {
       if (b.status !== "Active") return false;
@@ -182,7 +183,7 @@ export const ReetSutraProvider = ({ children }) => {
     socialFacebook: "https://facebook.com/reetsutra",
     socialYoutube: "https://youtube.com/@reetsutra",
     socialTelegram: "https://t.me/reetsutra",
-    socialWhatsapp: "https://wa.me/917643930659",
+    socialWhatsapp: getWhatsAppUrl(),
     socialTwitter: "https://twitter.com/reetsutra",
     socialLinkedin: "https://linkedin.com/company/reetsutra"
   });
@@ -192,7 +193,10 @@ export const ReetSutraProvider = ({ children }) => {
       const response = await fetch(`${API_BASE_URL}/settings`);
       const resJson = await response.json();
       if (response.ok && resJson.success && resJson.data) {
-        setSettings(resJson.data);
+        setSettings({
+          ...resJson.data,
+          socialWhatsapp: getWhatsAppUrl()
+        });
       }
     } catch (err) {
       console.error("Failed to fetch settings in frontend:", err);
@@ -604,7 +608,7 @@ export const ReetSutraProvider = ({ children }) => {
         body: JSON.stringify({ email, password })
       });
       const resJson = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(resJson.message || "Login failed.");
       }
@@ -613,7 +617,7 @@ export const ReetSutraProvider = ({ children }) => {
 
       localStorage.setItem("rs_token", newToken);
       localStorage.setItem("reetsutra_user", JSON.stringify({ ...userProfile, isLoggedIn: true }));
-      
+
       setToken(newToken);
       setUser({ ...userProfile, isLoggedIn: true });
       showToast("Welcome back! Login successful.", "success");
@@ -918,15 +922,15 @@ export const ReetSutraProvider = ({ children }) => {
       const isBuyNow = !!orderData.buyNowItem;
       const orderItems = isBuyNow
         ? [
-            {
-              productId: orderData.buyNowItem.product._id || orderData.buyNowItem.product.id,
-              quantity: orderData.buyNowItem.quantity
-            }
-          ]
+          {
+            productId: orderData.buyNowItem.product._id || orderData.buyNowItem.product.id,
+            quantity: orderData.buyNowItem.quantity
+          }
+        ]
         : cart.map(item => ({
-            productId: item.product._id || item.product.id,
-            quantity: item.quantity
-          }));
+          productId: item.product._id || item.product.id,
+          quantity: item.quantity
+        }));
 
       if (orderData.selectedSample) {
         orderItems.push({
@@ -1129,7 +1133,7 @@ export const ReetSutraProvider = ({ children }) => {
               <h4 className="text-[10px] font-bold text-brand-gold uppercase tracking-wider">System Notification</h4>
               <p className="text-xs font-semibold text-brand-green leading-normal mt-0.5">{toast.message}</p>
             </div>
-            <button 
+            <button
               onClick={() => {
                 if (toastTimeoutId) clearTimeout(toastTimeoutId);
                 setToast(null);

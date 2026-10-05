@@ -59,30 +59,27 @@ export default function ProductCard({ product, onQuickView }) {
           
           {/* Badges */}
           <div className="absolute top-3 left-3 z-10 flex flex-col space-y-1.5 items-start">
-            {isOutOfStock ? (
+            {isOutOfStock && (
               <span className="bg-rose-700 text-white text-[9px] font-extrabold tracking-wider px-2 py-0.5 uppercase rounded-sm shadow-sm">
                 Out of Stock
               </span>
-            ) : (
-              <>
-                {isFreeSampleActive && !isSampleProduct && (
-                  <span className="bg-[#143021] text-[#C5972E] text-[9px] font-extrabold tracking-wider px-2 py-0.5 uppercase rounded-sm shadow-xs border border-[#C5972E]/40 flex items-center gap-1">
-                    🎁 FREE SAMPLE GIFT
-                  </span>
-                )}
-                {product.bestseller && (
-                  <span className="bg-brand-green text-brand-cream text-[9px] font-semibold tracking-wider px-2 py-0.5 uppercase rounded-sm">
-                    Bestseller
-                  </span>
-                )}
-                {product.discount > 0 && (
-                  <span className={`text-[9px] font-extrabold tracking-wider px-2 py-0.5 uppercase rounded-sm shadow-xs ${
-                    product.hasFloatingOffer ? 'bg-amber-600 text-white animate-pulse' : 'bg-brand-gold text-brand-green'
-                  }`}>
-                    {product.hasFloatingOffer ? `🔥 ${product.discount}% OFF` : `${product.discount}% OFF`}
-                  </span>
-                )}
-              </>
+            )}
+            {isFreeSampleActive && !isSampleProduct && !isOutOfStock && (
+              <span className="bg-[#143021] text-[#C5972E] text-[9px] font-extrabold tracking-wider px-2 py-0.5 uppercase rounded-sm shadow-xs border border-[#C5972E]/40 flex items-center gap-1">
+                🎁 FREE SAMPLE GIFT
+              </span>
+            )}
+            {product.bestseller && !isOutOfStock && (
+              <span className="bg-brand-green text-brand-cream text-[9px] font-semibold tracking-wider px-2 py-0.5 uppercase rounded-sm">
+                Bestseller
+              </span>
+            )}
+            {product.discount > 0 && (
+              <span className={`text-[9px] font-extrabold tracking-wider px-2 py-0.5 uppercase rounded-sm shadow-xs ${
+                product.hasFloatingOffer ? 'bg-amber-600 text-white animate-pulse' : 'bg-brand-gold text-brand-green'
+              }`}>
+                {product.hasFloatingOffer ? `🔥 ${product.discount}% OFF` : `${product.discount}% OFF`}
+              </span>
             )}
           </div>
 
@@ -99,53 +96,30 @@ export default function ProductCard({ product, onQuickView }) {
             <Heart className={`w-4 h-4 ${inWishlist ? 'fill-current' : ''}`} />
           </button>
 
-          {/* Image with full-area click for Quick View / Details */}
-          <div 
-            className="w-full h-full cursor-pointer"
-            onClick={(e) => {
-              if (onQuickView) {
-                e.preventDefault();
-                e.stopPropagation();
-                onQuickView(product);
-              }
-            }}
+          {/* Image with direct link to Product Details Page */}
+          <Link 
+            to={`/product/${product.id}`} 
+            className="block w-full h-full cursor-pointer"
           >
-            <Link 
-              to={`/product/${product.id}`} 
-              className="block w-full h-full"
-              onClick={(e) => {
-                if (onQuickView) {
-                  e.preventDefault();
-                }
-              }}
-            >
-              <img
-                src={product.image}
-                alt={product.name}
-                loading="lazy"
-                onError={handleFrontendImageError}
-                className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${isOutOfStock ? 'grayscale-30 opacity-90' : ''}`}
-              />
-            </Link>
-          </div>
+            <img
+              src={product.image}
+              alt={product.name}
+              loading="lazy"
+              onError={handleFrontendImageError}
+              className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${isOutOfStock ? 'grayscale-30 opacity-90' : ''}`}
+            />
+          </Link>
 
-          {/* Hover Overlay Actions (Visible on larger screens) */}
-          <div 
-            onClick={(e) => {
-              if (e.target === e.currentTarget && onQuickView) {
-                onQuickView(product);
-              }
-            }}
-            className="absolute inset-0 bg-brand-green/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-3 cursor-pointer"
-          >
+          {/* Hover Overlay Actions */}
+          <div className="absolute inset-0 bg-brand-green/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-3 pointer-events-none">
             
-            <button
-              onClick={() => onQuickView && onQuickView(product)}
+            <Link
+              to={`/product/${product.id}`}
               className="p-3 bg-brand-ivory text-brand-green hover:bg-brand-gold hover:text-brand-green rounded-full shadow-md transition-all duration-300 hover:scale-110 pointer-events-auto cursor-pointer"
-              title="Quick View"
+              title="View Product Details"
             >
               <Eye className="w-5 h-5" />
-            </button>
+            </Link>
 
             {!isOutOfStock ? (
               <button

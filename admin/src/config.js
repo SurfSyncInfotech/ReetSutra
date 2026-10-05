@@ -21,5 +21,8 @@ export const handleAdminImageError = (e, fallbackUrl) => {
     e.target.src = `${LIVE_BACKEND_URL}${relativePath}`;
   } else if (fallbackUrl) {
     e.target.src = fallbackUrl;
+  } else {
+    e.target.onerror = null;
+    e.target.style.display = "none";
   }
 };

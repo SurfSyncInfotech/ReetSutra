@@ -209,34 +209,58 @@ export default function Home() {
 
   const [currentFloatingIndex, setCurrentFloatingIndex] = useState(0);
   const [isFloatingMuted, setIsFloatingMuted] = useState(true);
+  const [isFloatingOpen, setIsFloatingOpen] = useState(true);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
 
   // 1. All Active & Valid Banners (Date Check: includes full end date till 23:59:59)
-  const activeBanners = heroBanners.filter(b => {
-    if (b.status !== "Active") return false;
-    if (b.startDate && new Date(b.startDate) > now) return false;
-    if (b.endDate) {
-      const endD = new Date(b.endDate);
-      endD.setHours(23, 59, 59, 999);
-      if (endD < now) return false;
-    }
-    return true;
-  });
+  const activeBanners = React.useMemo(() => {
+    const now = new Date();
+    return heroBanners.filter(b => {
+      if (b.status !== "Active") return false;
+      if (b.startDate && new Date(b.startDate) > now) return false;
+      if (b.endDate) {
+        const endD = new Date(b.endDate);
+        endD.setHours(23, 59, 59, 999);
+        if (endD < now) return false;
+      }
+      return true;
+    });
+  }, [heroBanners]);
 
-  // Top Hero Banners: Prefer Hero/Both banners, or all active banners if no specific Hero banner exists
-  const heroSpecificBanners = activeBanners.filter(b => b.bannerType !== "Floating");
-  const bannersForHero = heroSpecificBanners.length > 0 ? heroSpecificBanners : activeBanners;
+  // Top Hero Banners: Include all active banners (including floating offer banners) in main carousel
+  const bannersForHero = activeBanners;
 
   // Desktop Banners for top hero: Include all banners unless explicitly tagged Mobile
-  const displayDesktopBanners = bannersForHero.filter(b => b.targetDevice !== "Mobile");
+  const displayDesktopBanners = React.useMemo(() => {
+    return bannersForHero.filter(b => b.targetDevice !== "Mobile");
+  }, [bannersForHero]);
 
   // Mobile Banners for top hero: Include all banners unless explicitly tagged Desktop
-  const displayMobileBanners = bannersForHero.filter(b => b.targetDevice !== "Desktop");
+  const displayMobileBanners = React.useMemo(() => {
+    return bannersForHero.filter(b => b.targetDevice !== "Desktop");
+  }, [bannersForHero]);
 
   // 2. Floating Banners array for Corner Floating Video/Image Widget
-  const floatingBanners = activeBanners.filter(b => {
-    const isFloating = b.bannerType === "Floating" || b.placement?.includes("Floating");
-    return isFloating;
-  });
+  const floatingBanners = React.useMemo(() => {
+    return activeBanners.filter(b => {
+      const isFloating = b.bannerType === "Floating" || b.placement?.includes("Floating");
+      return isFloating;
+    });
+  }, [activeBanners]);
+
+  const categoryFloatingOffers = React.useMemo(() => {
+    const map = {};
+    activeBanners.forEach(b => {
+      const isFloating = b.bannerType === "Floating" || b.placement?.includes("Floating");
+      if (!isFloating) return;
+
+      if (b.discountPercentage && b.discountPercentage > 0) {
+        const targetCat = (b.targetCategory || "All Categories").toLowerCase().trim();
+        map[targetCat] = Math.max(map[targetCat] || 0, b.discountPercentage);
+      }
+    });
+    return map;
+  }, [activeBanners]);
 
   const isVideoUrl = (url) => {
     if (!url || typeof url !== "string") return false;
@@ -294,8 +318,23 @@ export default function Home() {
     setCurrentFloatingIndex(prev => (prev + 1) % floatingBanners.length);
   }, [floatingBanners.length]);
 
-  // Top Hero Auto-slide (3s for images; video onEnded handles transitions)
+  // Dynamic slide timer (100% precise duration)
+  const currentBannerSeconds = React.useMemo(() => {
+    const activeBannerWithTimer = activeBanners.find(b => b.durationSeconds && Number(b.durationSeconds) > 0);
+    if (activeBannerWithTimer) {
+      return Number(activeBannerWithTimer.durationSeconds);
+    }
+    const currentBanner = currentDesktopBanner || currentMobileBanner;
+    if (currentBanner && currentBanner.durationSeconds && Number(currentBanner.durationSeconds) > 0) {
+      return Number(currentBanner.durationSeconds);
+    }
+    return 5;
+  }, [activeBanners, currentDesktopBanner, currentMobileBanner]);
+
+  // Top Hero Auto-slide with precise setTimeout
   useEffect(() => {
+    if (isTimerPaused) return; // Freeze timer on tap/click anywhere (WhatsApp status style)
+
     const maxLen = Math.max(displayDesktopBanners.length, displayMobileBanners.length);
     if (maxLen <= 1) return;
 
@@ -305,26 +344,12 @@ export default function Home() {
 
     if (isCurrentVideo) return;
 
-    const timer = setInterval(() => {
+    const timer = setTimeout(() => {
       nextSlide();
-    }, 7000);
+    }, currentBannerSeconds * 1000);
 
-    return () => clearInterval(timer);
-  }, [displayDesktopBanners.length, displayMobileBanners.length, currentSlideIndex, currentDesktopBanner, currentMobileBanner, nextSlide]);
-
-  // Floating Corner Widget Auto-slide (7s for images; video onEnded handles transitions)
-  useEffect(() => {
-    if (floatingBanners.length <= 1 || !activeFloatingBanner) return;
-
-    const isCurrentFloatingVideo = isVideoUrl(getBannerImage(activeFloatingBanner));
-    if (isCurrentFloatingVideo) return; // Video onEnded triggers transition when full video finishes!
-
-    const timer = setInterval(() => {
-      nextFloatingSlide();
-    }, 7000);
-
-    return () => clearInterval(timer);
-  }, [floatingBanners.length, activeFloatingBanner, currentFloatingIndex, nextFloatingSlide]);
+    return () => clearTimeout(timer);
+  }, [isTimerPaused, currentSlideIndex, currentBannerSeconds, displayDesktopBanners.length, displayMobileBanners.length, nextSlide]);
 
   // Filter bestsellers dynamically
   const filteredBestsellers = products.filter(p => {
@@ -401,7 +426,7 @@ export default function Home() {
   const socialGalleryItems = [
     {
       image: '/images/new_rs_ghee.webp',
-      title: 'Pure A2 Cow Ghee',
+      title: 'Pure A2 Desi Cow Ghee',
       category: 'Ghee',
       link: '/shop?category=Ghee'
     },
@@ -455,7 +480,14 @@ export default function Home() {
 
       {/* 1A. MOBILE VIEW: Dedicated Mobile Hero Layout */}
       {displayMobileBanners.length > 0 && (
-        <div className="block lg:hidden relative w-full overflow-hidden border-b border-brand-gold/15 bg-[#FAF6EF]">
+        <div 
+          onMouseDown={() => setIsTimerPaused(true)}
+          onMouseUp={() => setIsTimerPaused(false)}
+          onMouseLeave={() => setIsTimerPaused(false)}
+          onTouchStart={() => setIsTimerPaused(true)}
+          onTouchEnd={() => setIsTimerPaused(false)}
+          className="block lg:hidden relative w-full overflow-hidden border-b border-brand-gold/15 bg-[#FAF6EF]"
+        >
           <div className="relative w-full overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.div
@@ -482,9 +514,7 @@ export default function Home() {
                     <img
                       src={getMobileBannerImage(currentMobileBanner)}
                       alt="ReetSutra Mobile Banner"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
+                      onError={(e) => handleFrontendImageError(e)}
                       loading="eager"
                       fetchPriority="high"
                       className="w-full h-auto object-contain block"
@@ -557,7 +587,14 @@ export default function Home() {
 
       {/* 1B. DESKTOP VIEW: Clean Full-Width Banner Image / Video */}
       {displayDesktopBanners.length > 0 && (
-        <section className="hidden lg:block relative w-full overflow-hidden border-b border-brand-gold/15 bg-[#FAF6EF]">
+        <section 
+          onMouseDown={() => setIsTimerPaused(true)}
+          onMouseUp={() => setIsTimerPaused(false)}
+          onMouseLeave={() => setIsTimerPaused(false)}
+          onTouchStart={() => setIsTimerPaused(true)}
+          onTouchEnd={() => setIsTimerPaused(false)}
+          className="hidden lg:block relative w-full overflow-hidden border-b border-brand-gold/15 bg-[#FAF6EF]"
+        >
           <div className="relative w-full overflow-hidden min-h-[350px]">
             <AnimatePresence mode="wait">
               <motion.div
@@ -583,9 +620,7 @@ export default function Home() {
                     <img
                       src={getBannerImage(currentDesktopBanner)}
                       alt="ReetSutra Desktop Banner"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                      }}
+                      onError={(e) => handleFrontendImageError(e)}
                       loading="eager"
                       fetchPriority="high"
                       className="w-full h-auto object-contain block"
@@ -740,39 +775,57 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 pt-4">
-            {categories.map((cat, idx) => (
-              <motion.div
-                key={cat.name}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: idx * 0.05 }}
-                className="flex flex-col items-center"
-              >
-                <Link
-                  to={`/shop?category=${cat.name}`}
-                  className="group flex flex-col items-center space-y-3 w-full"
+            {categories.map((cat, idx) => {
+              const catNorm = (cat.name || "").toLowerCase().trim();
+              const offerPct = categoryFloatingOffers[catNorm] || categoryFloatingOffers["all categories"] || categoryFloatingOffers["all products"] || 0;
+
+              return (
+                <motion.div
+                  key={cat.name}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: idx * 0.05 }}
+                  className="flex flex-col items-center"
                 >
-                  <div className="aspect-square w-24 rounded-full overflow-hidden border border-brand-gold/20 group-hover:border-brand-gold p-1 bg-white transition-all duration-300 shadow-sm group-hover:shadow-md">
-                    <img
-                      src={fixImageUrl(cat.image)}
-                      alt={cat.name}
-                      onError={handleFrontendImageError}
-                      className="w-full h-full object-cover rounded-full group-hover:scale-105 transition-transform duration-500"
-                    />
-                  </div>
-                  <div className="text-center space-y-1">
-                    <h3 className="font-bold text-xs text-brand-green font-serif group-hover:text-brand-gold transition-colors truncate">
-                      {cat.displayName || cat.name}
-                    </h3>
-                    <span className="text-[10px] font-bold text-brand-gold hover:text-brand-green tracking-wider uppercase flex items-center justify-center gap-0.5">
-                      <span>Shop Now</span>
-                      <ArrowRight className="w-2.5 h-2.5 group-hover:translate-x-0.5 transition-transform" />
-                    </span>
-                  </div>
-                </Link>
-              </motion.div>
-            ))}
+                  <Link
+                    to={`/shop?category=${cat.name}`}
+                    className="group flex flex-col items-center space-y-3 w-full"
+                  >
+                    <div className="relative aspect-square w-24 rounded-full border border-brand-gold/20 group-hover:border-brand-gold p-1 bg-white transition-all duration-300 shadow-sm group-hover:shadow-md">
+                      {offerPct > 0 && (
+                        <span className="absolute -top-1 -right-1 z-20 bg-amber-600 text-white text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-full shadow-md border border-white animate-pulse">
+                          🔥 {offerPct}% OFF
+                        </span>
+                      )}
+                      <div className="w-full h-full rounded-full overflow-hidden">
+                        <img
+                          src={fixImageUrl(cat.image)}
+                          alt={cat.name}
+                          onError={handleFrontendImageError}
+                          className="w-full h-full object-cover rounded-full group-hover:scale-105 transition-transform duration-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-center space-y-1">
+                      <h3 className="font-bold text-xs text-brand-green font-serif group-hover:text-brand-gold transition-colors truncate">
+                        {cat.displayName || cat.name}
+                      </h3>
+                      {offerPct > 0 ? (
+                        <span className="text-[9.5px] font-extrabold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 shadow-2xs block truncate">
+                          🔥 {offerPct}% OFF OFFER
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-brand-gold hover:text-brand-green tracking-wider uppercase flex items-center justify-center gap-0.5">
+                          <span>Shop Now</span>
+                          <ArrowRight className="w-2.5 h-2.5 group-hover:translate-x-0.5 transition-transform" />
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
           </div>
         </section>
 
@@ -1046,16 +1099,16 @@ export default function Home() {
               <div className="aspect-[4/3] rounded overflow-hidden shadow-md border border-brand-gold/15 bg-white group-hover:border-brand-gold transition-all duration-300">
                 <img
                   src="/images/desi_cow_ghee.jpeg"
-                  alt="Pure A2 Bilona Cow Ghee"
+                  alt="Pure A2 Desi Cow Ghee"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
               </div>
               <h3 className="text-lg font-bold text-brand-green font-serif group-hover:text-brand-gold transition-colors flex items-center justify-between">
-                <span>Pure A2 Bilona Cow Ghee</span>
+                <span>Pure A2 Desi Cow Ghee</span>
                 <ArrowRight className="w-4 h-4 text-brand-gold opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>
               <p className="text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans">
-                Crafted from grass-fed cow milk using the ancient Vedic Bilona method. Rich granular texture, natural aroma, and essential healthy fats handed down through traditional Indian kitchen heritage.
+                Crafted from grass-fed cow milk using traditional methods. Rich granular texture, natural aroma, and essential healthy fats handed down through traditional Indian kitchen heritage.
               </p>
             </Link>
 

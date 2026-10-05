@@ -107,6 +107,9 @@ export const createProduct = async (req, res, next) => {
       weight,
       shortDescription,
       ingredients,
+      storageInstructions,
+      nutritionFacts,
+      shippingInfo,
       benefits,
       expiryDate,
       brand,
@@ -152,6 +155,9 @@ export const createProduct = async (req, res, next) => {
         weight: weight || "",
         shortDescription: shortDescription || "",
         ingredients: ingredients || [],
+        storageInstructions: storageInstructions || "",
+        nutritionFacts: nutritionFacts || "",
+        shippingInfo: shippingInfo || "",
         benefits: benefits || [],
         expiryDate: sanitizeExpiryDate(expiryDate),
         brand: brand || "",
@@ -237,7 +243,7 @@ export const editProduct = async (req, res, next) => {
         const fieldsToUpdate = [
           "name", "sku", "description", "price", "compareAtPrice", "stock",
           "status", "image", "images", "video", "weight", "shortDescription",
-          "ingredients", "benefits", "expiryDate", "brand", "gst", "hsnCode",
+          "ingredients", "storageInstructions", "nutritionFacts", "shippingInfo", "benefits", "expiryDate", "brand", "gst", "hsnCode",
           "eanCode", "size", "length", "width", "height", "cessRate", "facility",
           "badInventory", "shelfLife", "isBundle", "bundleItems"
         ];
@@ -261,7 +267,10 @@ export const editProduct = async (req, res, next) => {
         if (product.stock > 0) {
           notifySubscribersIfStockRestocked(product).catch(err => console.error("Stock notify error:", err));
         }
-        return sendSuccess(res, "Product updated successfully.", product);
+        const freshProduct = await ProductMySQL.findByPk(Number(id), {
+          include: [{ model: CategoryMySQL, as: "category" }]
+        });
+        return sendSuccess(res, "Product updated successfully.", freshProduct || product);
       }
     }
 
@@ -271,7 +280,7 @@ export const editProduct = async (req, res, next) => {
         const fieldsToUpdate = [
           "name", "sku", "description", "price", "compareAtPrice", "category", "stock",
           "status", "image", "images", "video", "weight", "shortDescription",
-          "ingredients", "benefits", "expiryDate", "brand", "gst", "hsnCode",
+          "ingredients", "storageInstructions", "nutritionFacts", "shippingInfo", "benefits", "expiryDate", "brand", "gst", "hsnCode",
           "eanCode", "size", "length", "width", "height", "cessRate", "facility",
           "badInventory", "shelfLife", "isBundle", "bundleItems"
         ];
@@ -380,7 +389,7 @@ export const getProducts = async (req, res, next) => {
       }
     }
 
-    const meta = getPaginationMeta(total, pageNum, limitNum);
+    const meta = getPaginationMeta(pageNum, limitNum, total);
 
     return sendSuccess(res, "Products fetched successfully.", {
       products,

@@ -106,12 +106,16 @@ export default function Checkout() {
   }, [addresses]);
 
   // Calculations
-  const subtotal = state.subtotal || checkoutItems.reduce((acc, item) => {
-    const discountPercent = item.product.discount || 0;
-    const discountedPrice = Math.round(item.product.price * (1 - discountPercent / 100));
-    return acc + (discountedPrice * item.quantity);
+  const totalOriginalAmount = state.totalOriginalAmount || checkoutItems.reduce((acc, item) => {
+    const origPrice = item.product.originalPrice || item.product.compareAtPrice || (item.product.discount > 0 ? Math.round(item.product.price / (1 - item.product.discount / 100)) : item.product.price);
+    return acc + (origPrice * item.quantity);
   }, 0);
 
+  const subtotal = state.subtotal || checkoutItems.reduce((acc, item) => {
+    return acc + (item.product.price * item.quantity);
+  }, 0);
+
+  const totalOfferSavings = Math.max(0, totalOriginalAmount - subtotal);
   const discount = state.discount || 0;
   const deliveryCharge = subtotal > 799 || subtotal === 0 ? 0 : 70;
   const total = subtotal - discount + deliveryCharge;
@@ -698,15 +702,33 @@ export default function Checkout() {
           {/* Miniature List */}
           <div className="space-y-4 max-h-[220px] overflow-y-auto pr-1">
             {checkoutItems.map((item) => {
-              const discountPercent = item.product.discount || 0;
-              const discountedPrice = Math.round(item.product.price * (1 - discountPercent / 100));
+              const unitPrice = item.product.price;
+              const originalUnitPrice = item.product.originalPrice || item.product.compareAtPrice || (item.product.discount > 0 ? Math.round(item.product.price / (1 - item.product.discount / 100)) : item.product.price);
+              const discountPct = item.product.discount || 0;
+
               return (
-                <div key={item.product.id || item.product._id} className="flex justify-between items-center text-xs font-sans">
-                  <div className="space-y-0.5">
+                <div key={item.product.id || item.product._id} className="flex justify-between items-center text-xs font-sans border-b border-brand-gold/10 pb-2.5">
+                  <div className="space-y-1">
                     <p className="font-bold text-brand-green line-clamp-1">{item.product.name}</p>
-                    <p className="text-[10px] text-brand-charcoalLight">{item.quantity} x ₹{discountedPrice}</p>
+                    
+                    {/* Offer Tag Badge */}
+                    {discountPct > 0 && (
+                      <span className="inline-block text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                        🔥 Offer: {discountPct}% OFF Applied
+                      </span>
+                    )}
+
+                    <div className="flex items-baseline space-x-1.5 text-[11px]">
+                      <span className="font-bold text-brand-green">{item.quantity} x ₹{unitPrice}</span>
+                      {originalUnitPrice > unitPrice && (
+                        <span className="text-brand-charcoalLight line-through text-[10px]">₹{originalUnitPrice}</span>
+                      )}
+                      {discountPct > 0 && (
+                        <span className="text-amber-700 font-bold text-[10px]">({discountPct}% OFF)</span>
+                      )}
+                    </div>
                   </div>
-                  <span className="font-bold text-brand-green shrink-0">₹{discountedPrice * item.quantity}</span>
+                  <span className="font-bold text-brand-green shrink-0 text-sm">₹{unitPrice * item.quantity}</span>
                 </div>
               );
             })}
@@ -728,9 +750,22 @@ export default function Checkout() {
           {/* Pricing calculations */}
           <div className="border-t border-brand-creamDark pt-4 space-y-3.5 text-xs md:text-sm text-brand-charcoalLight font-sans">
             <div className="flex justify-between">
+              <span>Item MRP Total</span>
+              <span className="font-bold text-brand-charcoal">₹{totalOriginalAmount > subtotal ? totalOriginalAmount : subtotal}</span>
+            </div>
+
+            {totalOfferSavings > 0 && (
+              <div className="flex justify-between text-amber-800 font-bold bg-amber-50 px-2.5 py-1.5 rounded border border-amber-200">
+                <span>🔥 Campaign Offer Savings</span>
+                <span>-₹{totalOfferSavings}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between">
               <span>Items Subtotal</span>
               <span className="font-bold text-brand-green">₹{subtotal}</span>
             </div>
+
             {discount > 0 && (
               <div className="flex justify-between text-green-600 font-semibold">
                 <span>Promo Discount</span>
@@ -740,7 +775,7 @@ export default function Checkout() {
             <div className="flex justify-between">
               <span>Delivery Charges</span>
               <span className="font-bold text-brand-green">
-                {deliveryCharge === 0 ? <span className="text-green-600">FREE</span> : `₹${deliveryCharge}`}
+                {deliveryCharge === 0 ? <span className="text-green-600 font-bold">FREE</span> : `₹${deliveryCharge}`}
               </span>
             </div>
             <div className="border-t border-brand-creamDark pt-3.5 flex justify-between text-base md:text-lg font-extrabold text-brand-green">

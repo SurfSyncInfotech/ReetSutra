@@ -57,6 +57,11 @@ export const Banner = sequelize.define("Banner", {
     allowNull: true,
     defaultValue: 0
   },
+  durationSeconds: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: 5
+  },
   status: {
     type: DataTypes.STRING,
     defaultValue: "Active"

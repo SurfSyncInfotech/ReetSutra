@@ -50,6 +50,7 @@ export const addBanner = async (req, res, next) => {
         endDate: req.body.endDate || null,
         targetCategory: req.body.targetCategory || "All Categories",
         discountPercentage: req.body.discountPercentage ? parseFloat(req.body.discountPercentage) : 0,
+        durationSeconds: req.body.durationSeconds ? parseInt(req.body.durationSeconds) : 5,
         status: status || "Active",
         order: 1
       });
@@ -97,7 +98,7 @@ export const editBanner = async (req, res, next) => {
         const fieldsToUpdate = [
           "title", "bannerType", "targetDevice", "desktopImage", "mobileImage",
           "image", "link", "buttonLink", "startDate", "endDate", "status",
-          "targetCategory", "discountPercentage"
+          "targetCategory", "discountPercentage", "durationSeconds"
         ];
         fieldsToUpdate.forEach((field) => {
           if (req.body[field] !== undefined) banner[field] = req.body[field];
@@ -191,10 +192,35 @@ export const getBanners = async (req, res, next) => {
 
     const idSet = new Set();
     const banners = [];
+    const now = new Date();
 
     for (const b of [...mysqlBanners, ...mongoBanners]) {
       const bannerObj = b.toJSON ? b.toJSON() : b;
       const key = String(bannerObj.id || bannerObj._id || bannerObj.title || Math.random());
+
+      // Auto-remove expired floating banner campaign
+      const isFloating = bannerObj.bannerType === "Floating" || (bannerObj.placement && bannerObj.placement.includes("Floating"));
+      if (isFloating && bannerObj.endDate) {
+        const endDateObj = new Date(bannerObj.endDate);
+        if (typeof bannerObj.endDate === 'string' && !bannerObj.endDate.includes('T')) {
+          endDateObj.setHours(23, 59, 59, 999);
+        } else if (endDateObj.getHours() === 0 && endDateObj.getMinutes() === 0) {
+          endDateObj.setHours(23, 59, 59, 999);
+        }
+
+        if (now > endDateObj) {
+          // Delete expired floating banner from database
+          const targetId = bannerObj.id || bannerObj._id;
+          if (targetId && !isNaN(targetId)) {
+            BannerMySQL.destroy({ where: { id: Number(targetId) } }).catch(() => {});
+          }
+          if (bannerObj._id) {
+            Banner.findByIdAndDelete(bannerObj._id).catch(() => {});
+          }
+          continue; // Skip returning expired banner
+        }
+      }
+
       if (!idSet.has(key)) {
         idSet.add(key);
         banners.push(bannerObj);

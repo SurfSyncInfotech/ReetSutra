@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Plus, Edit2, Trash2, Calendar, Link2, Eye, AlertTriangle, EyeOff, Monitor, Smartphone, Layers } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { Modal } from "../components/Modal";
-import { getAdminImageUrl as getAdminImageUrlConfig } from "../config";
+import { getAdminImageUrl as getAdminImageUrlConfig, handleAdminImageError } from "../config";
 import heroBg from "../assets/Final_Banner_Img_web.png";
 import mobileHeroBg from "../assets/Mobile_view_Banner_image.jpg";
 
@@ -50,8 +50,36 @@ export const Banners = () => {
   const [formEndDate, setFormEndDate] = useState("");
   const [formTargetCategory, setFormTargetCategory] = useState("All Categories");
   const [formDiscountPercentage, setFormDiscountPercentage] = useState("");
+  const [formDurationSeconds, setFormDurationSeconds] = useState("5");
   const [formStatus, setFormStatus] = useState("Active");
   const [formError, setFormError] = useState("");
+
+  const isBannerExpired = (ban) => {
+    const isFloating = ban.bannerType === "Floating" || ban.placement?.includes("Floating");
+    if (!isFloating || !ban.endDate) return false;
+    
+    const now = new Date();
+    const endDateObj = new Date(ban.endDate);
+    if (typeof ban.endDate === 'string' && !ban.endDate.includes('T')) {
+      endDateObj.setHours(23, 59, 59, 999);
+    } else if (endDateObj.getHours() === 0 && endDateObj.getMinutes() === 0) {
+      endDateObj.setHours(23, 59, 59, 999);
+    }
+    return now > endDateObj;
+  };
+
+  // Auto-remove expired floating banners
+  React.useEffect(() => {
+    if (Array.isArray(banners)) {
+      banners.forEach(ban => {
+        if (isBannerExpired(ban)) {
+          deleteBanner(ban.id);
+        }
+      });
+    }
+  }, [banners, deleteBanner]);
+
+  const activeBanners = (banners || []).filter(ban => !isBannerExpired(ban));
 
   const handleOpenAdd = () => {
     setCurrentBanner(null);
@@ -65,6 +93,7 @@ export const Banners = () => {
     setFormEndDate("");
     setFormTargetCategory("All Categories");
     setFormDiscountPercentage("");
+    setFormDurationSeconds("5");
     setFormStatus("Active");
     setFormError("");
     setIsAddEditOpen(true);
@@ -82,7 +111,8 @@ export const Banners = () => {
     setFormEndDate(ban.endDate ? new Date(ban.endDate).toISOString().slice(0, 10) : "");
     setFormTargetCategory(ban.targetCategory || "All Categories");
     setFormDiscountPercentage(ban.discountPercentage ? String(ban.discountPercentage) : "");
-    setFormStatus(ban.status || "Active");
+    setFormDurationSeconds(ban.durationSeconds ? String(ban.durationSeconds) : "5");
+    setFormStatus("Active");
     setFormError("");
     setIsAddEditOpen(true);
   };
@@ -120,6 +150,7 @@ export const Banners = () => {
       endDate: formBannerType === "Floating" ? formEndDate : null,
       targetCategory: formBannerType === "Floating" ? formTargetCategory : "All Categories",
       discountPercentage: formBannerType === "Floating" && formDiscountPercentage ? parseFloat(formDiscountPercentage) : 0,
+      durationSeconds: parseInt(formDurationSeconds) || 5,
       status: formStatus
     };
 
@@ -159,8 +190,6 @@ export const Banners = () => {
 
   const getAdminImageUrl = (imgPath) => {
     if (!imgPath) return "";
-    if (imgPath.includes("Final_Banner_Img_web") || imgPath.includes("heroBg") || (imgPath.includes("Desktop") && !imgPath.includes("http") && !imgPath.includes("/uploads"))) return heroBg;
-    if (imgPath.includes("Mobile_view_Banner_image") || imgPath.includes("mobileHeroBg") || (imgPath.includes("Mobile") && !imgPath.includes("http") && !imgPath.includes("/uploads"))) return mobileHeroBg;
     if (imgPath.startsWith("data:") || imgPath.startsWith("http://") || imgPath.startsWith("https://")) {
       return imgPath;
     }
@@ -189,7 +218,7 @@ export const Banners = () => {
 
       {/* Grid listing of banners */}
       <div className="grid grid-cols-1 gap-6">
-        {banners.map((ban) => {
+        {activeBanners.map((ban) => {
           const isPermanent = ban.bannerType === "Permanent" || ban.placement?.includes("Permanent");
           const targetDev = ban.targetDevice || "Both";
           const rawBg = ban.desktopImage || ban.mobileImage || ban.image || "";
@@ -215,10 +244,7 @@ export const Banners = () => {
                   <img
                     src={bgImg}
                     alt={ban.title}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = targetDev === "Mobile" ? mobileHeroBg : heroBg;
-                    }}
+                    onError={(e) => handleAdminImageError(e)}
                     className="w-full h-full object-cover opacity-85"
                   />
                 )}
@@ -302,6 +328,9 @@ export const Banners = () => {
                               {ban.discountPercentage}% OFF
                             </span>
                           )}
+                          <span className="bg-blue-100 text-blue-900 text-[10px] font-extrabold px-2 py-0.5 rounded">
+                            ⏱️ {ban.durationSeconds || 5} Seconds Timer
+                          </span>
                         </div>
                       )}
                     </div>
@@ -339,7 +368,7 @@ export const Banners = () => {
           );
         })}
 
-        {banners.length === 0 && (
+        {activeBanners.length === 0 && (
           <div className="bg-white rounded-xl border border-primary/10 p-12 text-center space-y-3">
             <Layers size={36} className="mx-auto text-primary/30" />
             <h3 className="font-display font-bold text-lg text-primary">No Banners Found</h3>
@@ -489,6 +518,19 @@ export const Banners = () => {
                     className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs bg-white text-primary focus:outline-none focus:ring-1 focus:ring-amber-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-primary mb-1">⏱️ Slide Timer / Duration (Seconds) *</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 5 for 5 Seconds"
+                  min="1"
+                  max="60"
+                  value={formDurationSeconds}
+                  onChange={(e) => setFormDurationSeconds(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-amber-300 rounded-lg text-xs bg-white text-primary font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
               </div>
             </div>
           )}

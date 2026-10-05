@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useReetSutra } from '../context/ReetSutraContext';
+import { getWhatsAppUrl } from '../utils/whatsapp';
 import rsFooterImg from '../assets/rs_footer_img.png';
 import { 
   Mail, 
@@ -91,7 +92,7 @@ export default function Footer() {
     { label: "Facebook", href: settings?.socialFacebook || "https://facebook.com/reetsutra", icon: <FacebookIcon /> },
     { label: "YouTube", href: settings?.socialYoutube || "https://youtube.com/@reetsutra", icon: <YoutubeIcon /> },
     { label: "Telegram", href: settings?.socialTelegram || "https://t.me/reetsutra", icon: <TelegramIcon /> },
-    { label: "WhatsApp", href: settings?.socialWhatsapp || "https://wa.me/917643930659", icon: <WhatsappIcon /> },
+    { label: "WhatsApp", href: getWhatsAppUrl(), icon: <WhatsappIcon /> },
     { label: "X (Twitter)", href: settings?.socialTwitter || "https://x.com/reetsutra", icon: <XTwitterIcon /> },
     { label: "LinkedIn", href: settings?.socialLinkedin || "https://linkedin.com/company/reetsutra", icon: <LinkedinIcon /> }
   ].filter(soc => Boolean(soc.href));

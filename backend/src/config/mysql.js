@@ -67,6 +67,9 @@ export const connectMySQL = async () => {
     await sequelize.query("ALTER TABLE orders ADD COLUMN originalSubtotal FLOAT DEFAULT 0;").catch(() => {});
     await sequelize.query("ALTER TABLE orders ADD COLUMN floatingDiscountTotal FLOAT DEFAULT 0;").catch(() => {});
     await sequelize.query("ALTER TABLE coupons ADD COLUMN perUserLimit INT DEFAULT 1;").catch(() => {});
+    await sequelize.query("ALTER TABLE products ADD COLUMN storageInstructions TEXT NULL;").catch(() => {});
+    await sequelize.query("ALTER TABLE products ADD COLUMN nutritionFacts TEXT NULL;").catch(() => {});
+    await sequelize.query("ALTER TABLE products ADD COLUMN shippingInfo TEXT NULL;").catch(() => {});
     console.log("✅ MySQL Models Synchronized.");
   } catch (error) {
     console.error(`❌ MySQL Connection Error: ${error.message}`);

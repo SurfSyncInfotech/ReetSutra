@@ -290,8 +290,8 @@ export const DataProvider = ({ children }) => {
   const updateProduct = async (id, updatedFields) => {
     try {
       const updated = await apiRequest(`/products/${id}`, "PUT", updatedFields);
-      setProducts((prev) => prev.map((p) => (p._id === id || p.id === id ? updated : p)));
-      addNotification("Product Updated", `${updated.name} changes saved.`);
+      await fetchProducts(); // Fetch fresh fully-populated product list
+      addNotification("Product Updated", `${updated.name || "Product"} changes saved.`);
       showToast("Product updates saved successfully.", "success");
       fetchCategories(); // Refresh categories counts
       return updated;

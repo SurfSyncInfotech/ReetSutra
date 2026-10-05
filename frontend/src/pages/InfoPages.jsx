@@ -3,6 +3,7 @@ import { Mail, Phone, MapPin, Send, MessageCircle, Heart, Award, ShieldCheck } f
 import { motion } from 'framer-motion';
 import { useReetSutra } from '../context/ReetSutraContext';
 import { API_BASE_URL } from '../config';
+import { getWhatsAppUrl } from '../utils/whatsapp';
 
 // ==========================================
 // 1. ABOUT US
@@ -10,6 +11,7 @@ import { API_BASE_URL } from '../config';
 export function AboutUs() {
   const { settings } = useReetSutra();
   const [storyData, setStoryData] = useState(null);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/settings`)
@@ -33,11 +35,15 @@ export function AboutUs() {
   const artisanCount = activeData?.artisanCount || "150+";
   const districtsCount = activeData?.districtsCount || "12+";
 
-  const rawImg = activeData?.ourStoryImage || "https://images.unsplash.com/photo-1541832676-9b763b0239ab?auto=format&fit=crop&w=700&q=80";
+  const rawImg = activeData?.ourStoryImage ? activeData.ourStoryImage.trim() : "";
   const backendBase = API_BASE_URL.replace(/\/api$/, '');
-  const storyImg = (rawImg.startsWith('http://') || rawImg.startsWith('https://') || rawImg.startsWith('data:'))
-    ? rawImg
-    : `${backendBase}${rawImg.startsWith('/') ? '' : '/'}${rawImg}`;
+  const storyImg = rawImg
+    ? ((rawImg.startsWith('http://') || rawImg.startsWith('https://') || rawImg.startsWith('data:'))
+        ? rawImg
+        : `${backendBase}${rawImg.startsWith('/') ? '' : '/'}${rawImg}`)
+    : null;
+
+  const showImage = Boolean(storyImg && !imageError);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
@@ -57,7 +63,7 @@ export function AboutUs() {
       </section>
 
       {/* Visual story grid */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <section className={`grid grid-cols-1 ${showImage ? 'lg:grid-cols-2 gap-12' : 'max-w-3xl mx-auto'} items-center`}>
         <div className="space-y-6 text-xs md:text-sm text-brand-charcoalLight leading-relaxed font-sans">
           <h2 className="text-xl md:text-2xl font-bold text-brand-green font-serif">
             {womenTitle}
@@ -76,13 +82,16 @@ export function AboutUs() {
           </div>
         </div>
 
-        <div className="rounded-lg overflow-hidden border border-brand-gold/15 shadow-premium">
-          <img
-            src={storyImg}
-            alt="Our Story"
-            className="w-full h-full object-cover"
-          />
-        </div>
+        {showImage && (
+          <div className="rounded-lg overflow-hidden border border-brand-gold/15 shadow-premium">
+            <img
+              src={storyImg}
+              alt="Our Story"
+              className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
+            />
+          </div>
+        )}
       </section>
 
       {/* Quality Guarantees */}
@@ -274,7 +283,7 @@ export function ContactUs() {
               </p>
             </div>
             <a 
-              href={settings?.socialWhatsapp || "https://wa.me/917643930659"} 
+              href={getWhatsAppUrl()} 
               target="_blank" 
               rel="noopener noreferrer" 
               className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 shrink-0"

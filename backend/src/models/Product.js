@@ -90,6 +90,18 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
+    storageInstructions: {
+      type: String,
+      default: ""
+    },
+    nutritionFacts: {
+      type: String,
+      default: ""
+    },
+    shippingInfo: {
+      type: String,
+      default: ""
+    },
     benefits: {
       type: [String],
       default: []

@@ -66,6 +66,10 @@ const bannerSchema = new mongoose.Schema(
     discountPercentage: {
       type: Number,
       default: 0
+    },
+    durationSeconds: {
+      type: Number,
+      default: 5
     }
   },
   {
